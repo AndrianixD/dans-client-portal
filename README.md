@@ -1,36 +1,37 @@
 # Dan's Auto Body - Client Portal
 
-Portal do cliente integrado com Monday.com para acompanhamento de serviços.
+Portal do cliente integrado com Monday.com e Google Sheets para acompanhamento de serviços de reparo automotivo.
 
 ## 🚀 Funcionalidades
 
-- 🔐 Autenticação de clientes
-- 📊 Dashboard com status do serviço
+- 🔐 Autenticação com RO Number + Email
+- 📊 Dashboard com status em tempo real
 - 🔗 Integração com Monday.com
-- 📷 Upload de fotos adicionais
-- 💬 Comunicação com a oficina
-- 📅 Histórico de serviços
+- 📋 Informações detalhadas do veículo
+- 💬 Sistema de mensagens para a oficina
+- 📧 Notificações por email
+- 📱 Design responsivo (mobile-friendly)
 
 ## 📋 Pré-requisitos
 
 - Node.js 18+
 - Conta Monday.com com API token
-- Board ID do Monday.com configurado
+- Google Cloud Project com Google Sheets API
+- Conta Resend para envio de emails
 
-## 🛠️ Instalação
+## 🛠️ Instalação Rápida
 
 ```bash
 # Instalar dependências
 npm install
 
 # Copiar arquivo de variáveis de ambiente
-cp .env.example .env
+cp .env.example .env.local
 
-# Editar .env com suas credenciais
-# - MONDAY_API_TOKEN
-# - MONDAY_BOARD_ID
-# - NEXTAUTH_SECRET (gerar com: openssl rand -base64 32)
+# Configurar credenciais (ver SETUP.md para detalhes)
 ```
+
+**⚠️ IMPORTANTE:** Consulte o arquivo [SETUP.md](SETUP.md) para instruções completas de configuração passo a passo.
 
 ## 🏃 Desenvolvimento
 
@@ -67,20 +68,24 @@ gcloud run deploy dans-client-portal \
   --allow-unauthenticated
 ```
 
-## 📚 Integração Monday.com
+## 📚 Estrutura do Sistema
 
-### Obter API Token:
+### Fluxo de Autenticação
+1. Cliente acessa portal
+2. Insere RO Number + Email
+3. Sistema valida no Google Sheets
+4. Redireciona para dashboard
 
-1. Acesse: https://monday.com
-2. Avatar (canto superior direito) → Admin → API
-3. Gere um token pessoal
-4. Cole no .env como `MONDAY_API_TOKEN`
+### Fluxo de Dados
+1. **Google Sheets**: Armazena dados básicos dos veículos e mensagens
+2. **Monday.com**: Gerencia workflow e status em tempo real
+3. **Dashboard**: Combina dados de ambas as fontes
 
-### Obter Board ID:
-
-1. Abra o board que você quer usar
-2. A URL terá: `boards/XXXXXXXX`
-3. Copie o número e cole no .env como `MONDAY_BOARD_ID`
+### APIs Disponíveis
+- `POST /api/auth/verify` - Verificação de login
+- `GET /api/vehicle/[roNumber]` - Dados do veículo
+- `GET /api/status/[roNumber]` - Status atual
+- `POST /api/messages/send` - Envio de mensagens
 
 ## 🔒 Segurança
 

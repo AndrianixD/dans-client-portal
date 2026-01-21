@@ -186,3 +186,128 @@ export async function getClientServices(clientEmail: string) {
   return clientItems || [];
 }
 
+/**
+ * Busca status de um veículo pelo RO Number
+ */
+export async function getVehicleStatusByRO(roNumber: string) {
+  const boardId = process.env.MONDAY_BOARD_ID;
+  
+  if (!boardId) {
+    throw new Error('MONDAY_BOARD_ID not configured');
+  }
+
+  // Buscar todos os itens do board
+  const data = await getBoardItems(boardId);
+  const items = data.boards[0]?.items_page?.items || [];
+
+  // Procurar o item que corresponde ao RO Number
+  // Ajustar o ID da coluna conforme configuração do seu board
+  const vehicleItem = items.find((item: any) => {
+    // Procurar coluna de RO Number (pode ser 'text', 'text0', etc)
+    const roColumn = item.column_values?.find((col: any) => 
+      col.text?.toString().trim() === roNumber.trim() ||
+      col.value?.toString().trim() === roNumber.trim()
+    );
+    return roColumn;
+  });
+
+  if (!vehicleItem) {
+    return null;
+  }
+
+  // Pegar valor da coluna de Status
+  const statusColumn = vehicleItem.column_values?.find((col: any) => 
+    col.id === 'status' || col.type === 'color' || col.id.includes('status')
+  );
+
+  return {
+    itemId: vehicleItem.id,
+    name: vehicleItem.name,
+    status: statusColumn?.text || 'Unknown',
+    statusValue: statusColumn?.value,
+    allColumns: vehicleItem.column_values,
+    updatedAt: vehicleItem.updated_at,
+    createdAt: vehicleItem.created_at,
+  };
+}
+
+/**
+ * Busca detalhes completos de um item incluindo updates
+ */
+export async function getItemWithUpdates(itemId: string) {
+  const query = `
+    query GetItemWithUpdates($itemId: ID!) {
+      items(ids: [$itemId]) {
+        id
+        name
+        column_values {
+          id
+          text
+          value
+          type
+        }
+        created_at
+        updated_at
+        updates {
+          id
+          body
+          created_at
+          creator {
+            name
+            email
+          }
+        }
+      }
+    }
+  `;
+
+  return mondayQuery({
+    query,
+    variables: { itemId },
+  });
+}
+
+/**
+ * Cria uma mensagem do cliente no Monday (como update)
+ */
+export async function createClientMessage(itemId: string, message: string, clientInfo: { name: string; email: string; roNumber: string }) {
+  const formattedMessage = `
+📩 **Mensagem do Cliente**
+
+**Cliente:** ${clientInfo.name}
+**Email:** ${clientInfo.email}
+**RO Number:** ${clientInfo.roNumber}
+
+**Mensagem:**
+${message}
+
+---
+_Enviada através do Client Portal_
+  `.trim();
+
+  return addUpdateToItem(itemId, formattedMessage);
+}
+
+/**
+ * Busca o valor de uma coluna específica por ID
+ */
+export function getColumnValue(item: any, columnId: string): string | null {
+  const column = item.column_values?.find((col: any) => col.id === columnId);
+  return column?.text || column?.value || null;
+}
+
+/**
+ * Busca RO Number de um item (tentando vários IDs de coluna possíveis)
+ */
+export function getRONumberFromItem(item: any): string | null {
+  // IDs comuns para RO Number
+  const possibleIds = ['text', 'text0', 'text1', 'ro_number', 'claim_number', 'ro'];
+  
+  for (const id of possibleIds) {
+    const value = getColumnValue(item, id);
+    if (value) return value;
+  }
+  
+  return null;
+}
+
