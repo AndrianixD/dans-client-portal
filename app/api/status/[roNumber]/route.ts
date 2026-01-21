@@ -1,48 +1,60 @@
-/**
- * API Route: Status do Veículo
- * GET /api/status/[roNumber]
- * 
- * Retorna o status atual e mensagem do Monday.com
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { getVehicleStatusByRO } from '@/lib/monday';
-import { getMessageForStage } from '@/lib/google-sheets';
+import { getVehicleByROAndPassword, getMessageForStatus } from '@/lib/google-sheets';
+import { getMockStatus } from '@/lib/mock-data';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { roNumber: string } }
+  { params }: { params: Promise<{ roNumber: string }> }
 ) {
   try {
-    const { roNumber } = params;
+    const { roNumber } = await params;
+    const password = request.nextUrl.searchParams.get('password');
+    const demo = request.nextUrl.searchParams.get('demo') === 'true';
 
-    // Buscar status no Monday.com
-    const mondayData = await getVehicleStatusByRO(roNumber);
+    if (demo) {
+      // Modo DEMO - usar dados mock
+      const mockStatus = getMockStatus(roNumber);
+      
+      return NextResponse.json({
+        currentStage: mockStatus.currentStage,
+        message: mockStatus.message,
+        description: mockStatus.description,
+        lastUpdated: mockStatus.lastUpdated,
+      });
+    }
 
-    if (!mondayData) {
+    if (!password) {
       return NextResponse.json(
-        { error: 'Status não encontrado no Monday.com' },
+        { error: 'Password is required' },
+        { status: 400 }
+      );
+    }
+
+    // Modo REAL - buscar no Google Sheets
+    const vehicle = await getVehicleByROAndPassword(roNumber, password);
+
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    // Buscar mensagem correspondente ao estágio
-    const stageMessage = await getMessageForStage(mondayData.status);
+    // Buscar mensagem correspondente ao status na coluna "updates"
+    const status = vehicle.updates || '';
+    const statusMessage = await getMessageForStatus(status);
 
     return NextResponse.json({
-      currentStage: mondayData.status,
-      message: stageMessage?.message || 'Seu veículo está sendo processado.',
-      description: stageMessage?.description || '',
-      lastUpdated: mondayData.updatedAt,
-      itemId: mondayData.itemId,
-      history: [], // Pode ser implementado depois com getItemWithUpdates
+      currentStage: status || 'Processing',
+      message: statusMessage?.message || 'Your vehicle is being processed.',
+      description: '',
+      lastUpdated: new Date().toISOString(), // Pode ser ajustado se tiver coluna de data
     });
   } catch (error) {
     console.error('Error fetching status:', error);
     return NextResponse.json(
-      { error: 'Erro ao buscar status do veículo' },
+      { error: 'Error fetching vehicle status' },
       { status: 500 }
     );
   }
 }
-

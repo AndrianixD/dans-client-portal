@@ -7,71 +7,67 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendClientMessage } from '@/lib/email';
-import { getVehicleByRO } from '@/lib/google-sheets';
-import { getVehicleStatusByRO, createClientMessage } from '@/lib/monday';
+import { getVehicleByROAndPassword } from '@/lib/google-sheets';
+import { getMockVehicle, mockSendMessage } from '@/lib/mock-data';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { roNumber, email, message } = body;
+    const { roNumber, password, message, demo } = body;
 
     // Validação
-    if (!roNumber || !email || !message) {
+    if (!roNumber || !password || !message) {
       return NextResponse.json(
-        { error: 'RO Number, Email e Mensagem são obrigatórios' },
+        { error: 'RO Number, Password and Message are required' },
         { status: 400 }
       );
     }
 
     if (message.trim().length < 10) {
       return NextResponse.json(
-        { error: 'Mensagem deve ter pelo menos 10 caracteres' },
+        { error: 'Message must be at least 10 characters' },
         { status: 400 }
       );
     }
 
-    // Buscar dados do veículo
-    const vehicle = await getVehicleByRO(roNumber, email);
+    if (demo === true) {
+      // Modo DEMO - simular envio
+      await mockSendMessage();
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Message sent successfully (demo mode)',
+        demo: true,
+      });
+    }
+
+    // Modo REAL - Buscar dados do veículo
+    const vehicle = await getVehicleByROAndPassword(roNumber, password);
 
     if (!vehicle) {
       return NextResponse.json(
-        { error: 'RO Number ou Email inválidos' },
+        { error: 'Invalid RO Number or Password' },
         { status: 401 }
       );
     }
 
     // Enviar email para a oficina
     await sendClientMessage({
-      clientName: vehicle.clientName,
-      clientEmail: vehicle.email,
+      clientName: vehicle.clientName || 'Client',
+      clientEmail: vehicle.email || 'no-email@example.com',
       roNumber: vehicle.roNumber,
-      vin: vehicle.vin,
+      vin: vehicle.vin || 'N/A',
       message: message.trim(),
     });
 
-    // Tentar adicionar update no Monday.com (opcional, não falha se der erro)
-    try {
-      const mondayData = await getVehicleStatusByRO(roNumber);
-      if (mondayData?.itemId) {
-        await createClientMessage(mondayData.itemId, message.trim(), {
-          name: vehicle.clientName,
-          email: vehicle.email,
-          roNumber: vehicle.roNumber,
-        });
-      }
-    } catch (mondayError) {
-      console.warn('Could not add update to Monday.com:', mondayError);
-      // Continua mesmo se falhar
-    }
-
     return NextResponse.json({
       success: true,
-      message: 'Mensagem enviada com sucesso',
+      message: 'Message sent successfully',
     });
   } catch (error) {
     console.error('Error sending message:', error);
     return NextResponse.json(
-      { error: 'Erro ao enviar mensagem' },
+      { error: 'Error sending message' },
       { status: 500 }
     );
   }

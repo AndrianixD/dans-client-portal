@@ -6,31 +6,40 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getVehicleByRO } from '@/lib/google-sheets';
+import { getVehicleByROAndPassword } from '@/lib/google-sheets';
+import { getMockVehicle } from '@/lib/mock-data';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { roNumber: string } }
+  { params }: { params: Promise<{ roNumber: string }> }
 ) {
   try {
-    const { roNumber } = params;
+    const { roNumber } = await params;
 
-    // Obter email dos query params ou headers (sessão)
-    const email = request.nextUrl.searchParams.get('email');
+    // Obter password e modo demo dos query params
+    const password = request.nextUrl.searchParams.get('password');
+    const demo = request.nextUrl.searchParams.get('demo') === 'true';
 
-    if (!email) {
+    if (!password) {
       return NextResponse.json(
-        { error: 'Email é obrigatório' },
+        { error: 'Password is required' },
         { status: 400 }
       );
     }
 
-    // Buscar veículo
-    const vehicle = await getVehicleByRO(roNumber, email);
+    let vehicle;
+
+    // Modo DEMO - usar dados mock
+    if (demo) {
+      vehicle = getMockVehicle(roNumber, password);
+    } else {
+      // Modo REAL - usar Google Sheets
+      vehicle = await getVehicleByROAndPassword(roNumber, password);
+    }
 
     if (!vehicle) {
       return NextResponse.json(
-        { error: 'Veículo não encontrado' },
+        { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
@@ -43,11 +52,17 @@ export async function GET(
       clientName: vehicle.clientName,
       roNumber: vehicle.roNumber,
       phone: vehicle.phone,
+      email: vehicle.email,
+      updates: vehicle.updates,
+      // Novos campos da customer-info
+      vehicle: vehicle.vehicle,
+      insurance: vehicle.insurance,
+      claim: vehicle.claim,
     });
   } catch (error) {
     console.error('Error fetching vehicle:', error);
     return NextResponse.json(
-      { error: 'Erro ao buscar informações do veículo' },
+      { error: 'Error fetching vehicle information' },
       { status: 500 }
     );
   }
