@@ -532,6 +532,174 @@ export async function updateVehiclePhoto(
 }
 
 /**
+ * Busca veículos entregues (delivered) com fotos antigas (mais de 7 dias)
+ * Usado para limpeza automática de fotos
+ */
+export async function getDeliveredVehiclesWithOldPhotos(daysOld: number = 7): Promise<VehicleData[]> {
+  try {
+    if (!SHEETS_ID) {
+      throw new Error('GOOGLE_SHEETS_ID not configured');
+    }
+
+    const auth = getAuthClient();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Buscar dados da aba "allvehiclesmonday"
+    const authResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEETS_ID,
+      range: 'allvehiclesmonday!A:AA',
+    });
+
+    const authRows = authResponse.data.values;
+    if (!authRows || authRows.length <= 1) {
+      return [];
+    }
+
+    const authHeaders = authRows[0];
+    const authDataRows = authRows.slice(1);
+
+    // Encontrar índices das colunas
+    const roIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'ro');
+    const originIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'origin');
+    const photoUrlIndex = authHeaders.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_url' || header === 'photourl' || header === 'photo url';
+    });
+    const photoDateIndex = authHeaders.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_date' || header === 'photodate' || header === 'photo date';
+    });
+
+    if (roIndex === -1) {
+      throw new Error('Column RO not found in allvehiclesmonday');
+    }
+
+    const oldPhotoVehicles: VehicleData[] = [];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+    // Filtrar veículos entregues com fotos antigas
+    for (const row of authDataRows) {
+      const origin = originIndex !== -1 ? (row[originIndex] || '').toString().trim().toLowerCase() : '';
+      const photoUrl = photoUrlIndex !== -1 ? (row[photoUrlIndex] || '') : '';
+      const photoDate = photoDateIndex !== -1 ? (row[photoDateIndex] || '') : '';
+
+      // Verificar se é entregue e tem foto
+      if (origin === 'delivered' && photoUrl && photoDate) {
+        try {
+          const photoDateObj = new Date(photoDate);
+          
+          // Se a foto é mais antiga que o cutoff date
+          if (photoDateObj < cutoffDate) {
+            const roNumber = row[roIndex]?.toString().trim();
+            if (roNumber) {
+              oldPhotoVehicles.push({
+                roNumber,
+                mondayItemId: '',
+                origin: origin,
+                photoUrl: photoUrl.toString(),
+                photoDate: photoDate.toString(),
+              });
+            }
+          }
+        } catch (error) {
+          console.error(`Error parsing photo date for RO ${row[roIndex]}:`, error);
+        }
+      }
+    }
+
+    return oldPhotoVehicles;
+  } catch (error) {
+    console.error('Error fetching delivered vehicles with old photos:', error);
+    throw error;
+  }
+}
+
+/**
+ * Remove foto de um veículo do Google Sheets (limpa photo_url e photo_date)
+ */
+export async function clearVehiclePhoto(roNumber: string): Promise<void> {
+  try {
+    if (!SHEETS_ID) {
+      throw new Error('GOOGLE_SHEETS_ID not configured');
+    }
+
+    const auth = getAuthClientWrite();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Buscar dados da aba "allvehiclesmonday"
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEETS_ID,
+      range: 'allvehiclesmonday!A:AA',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      throw new Error('No data found in allvehiclesmonday');
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    // Encontrar índices das colunas
+    const roIndex = headers.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'ro');
+    const photoUrlIndex = headers.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_url' || header === 'photourl' || header === 'photo url';
+    });
+    const photoDateIndex = headers.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_date' || header === 'photodate' || header === 'photo date';
+    });
+
+    if (roIndex === -1) {
+      throw new Error('Column RO not found');
+    }
+
+    if (photoUrlIndex === -1 || photoDateIndex === -1) {
+      // Colunas não existem, não há nada para limpar
+      return;
+    }
+
+    // Encontrar a linha do veículo
+    const vehicleRowIndex = dataRows.findIndex((row) => {
+      const rowRO = row[roIndex]?.toString().trim();
+      return rowRO === roNumber.trim();
+    });
+
+    if (vehicleRowIndex === -1) {
+      throw new Error(`Vehicle with RO ${roNumber} not found`);
+    }
+
+    // A linha real no sheet é vehicleRowIndex + 2
+    const sheetRowIndex = vehicleRowIndex + 2;
+    const photoUrlCol = String.fromCharCode(65 + photoUrlIndex);
+    const photoDateCol = String.fromCharCode(65 + photoDateIndex);
+
+    // Limpar valores (deixar vazio)
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SHEETS_ID,
+      requestBody: {
+        valueInputOption: 'RAW',
+        data: [
+          {
+            range: `allvehiclesmonday!${photoUrlCol}${sheetRowIndex}`,
+            values: [['']],
+          },
+          {
+            range: `allvehiclesmonday!${photoDateCol}${sheetRowIndex}`,
+            values: [['']],
+          },
+        ],
+      },
+    });
+  } catch (error) {
+    console.error('Error clearing vehicle photo:', error);
+    throw error;
+  }
+}
+
+/**
  * Valida se as credenciais do Google Sheets estão configuradas
  */
 export function validateGoogleSheetsConfig(): boolean {

@@ -1,99 +1,114 @@
 # Dan's Auto Body - Client Portal
 
-Portal do cliente integrado com Monday.com e Google Sheets para acompanhamento de serviços de reparo automotivo.
+Portal de acompanhamento de reparos para clientes da Dan's Auto Body.
 
-## 🚀 Funcionalidades
+## Features
 
-- 🔐 Autenticação com RO Number + Email
-- 📊 Dashboard com status em tempo real
-- 🔗 Integração com Monday.com
-- 📋 Informações detalhadas do veículo
-- 💬 Sistema de mensagens para a oficina
-- 📧 Notificações por email
-- 📱 Design responsivo (mobile-friendly)
+- **Client Portal**: Clientes acompanham status do reparo via RO Number + Password
+- **Admin Portal**: Equipe faz upload de fotos diárias dos veículos
+- **Auto Photo Cleanup**: Fotos antigas são automaticamente removidas
 
-## 📋 Pré-requisitos
+## Tech Stack
 
-- Node.js 18+
-- Conta Monday.com com API token
-- Google Cloud Project com Google Sheets API
-- Conta Resend para envio de emails
+- **Framework**: Next.js 15 (App Router)
+- **Styling**: Tailwind CSS
+- **Database**: Google Sheets
+- **Image Storage**: Cloudinary
+- **Deployment**: Google Cloud Run
 
-## 🛠️ Instalação Rápida
+## Environment Variables
 
-```bash
-# Instalar dependências
-npm install
+```env
+# Google Sheets
+GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEETS_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+GOOGLE_SHEETS_SPREADSHEET_ID=your-spreadsheet-id
 
-# Copiar arquivo de variáveis de ambiente
-cp .env.example .env.local
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
 
-# Configurar credenciais (ver SETUP.md para detalhes)
+# Admin
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your-secure-password
+
+# Cron (for photo cleanup)
+CRON_SECRET=your-cron-secret
 ```
 
-**⚠️ IMPORTANTE:** Consulte o arquivo [SETUP.md](SETUP.md) para instruções completas de configuração passo a passo.
-
-## 🏃 Desenvolvimento
+## Local Development
 
 ```bash
-# Iniciar servidor de desenvolvimento
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
 ```
 
-Acesse: http://localhost:3000
+Open [http://localhost:3000](http://localhost:3000)
 
-## 🚀 Deploy
+## Google Sheets Structure
 
-### Opção 1: Vercel (Recomendado para Next.js)
+### Tab: `allvehiclesmonday`
+| Column | Description |
+|--------|-------------|
+| RO | RO Number |
+| monday_item_id | Password for login |
+| updates | Current status |
+| photo_url | Vehicle photo URL |
+| photo_date | Photo date |
 
+### Tab: `customer-info`
+| Column | Description |
+|--------|-------------|
+| RO | RO Number |
+| Name | Client name |
+| Insurance | Insurance company |
+| Claim | Claim number |
+| Vehicle | Vehicle description |
+
+### Tab: `updatelist`
+| Column | Description |
+|--------|-------------|
+| updates | Status name |
+| message | Message for status |
+
+## Deployment (Google Cloud)
+
+### Build & Deploy
 ```bash
-# Instalar Vercel CLI
-npm i -g vercel
+# Build with Cloud Build
+gcloud builds submit --config cloudbuild.yaml
 
-# Deploy
-vercel
-```
-
-### Opção 2: Google Cloud Run
-
-```bash
-# Build
-npm run build
-
-# Deploy
+# Or deploy directly
 gcloud run deploy dans-client-portal \
   --source . \
-  --platform managed \
   --region us-central1 \
   --allow-unauthenticated
 ```
 
-## 📚 Estrutura do Sistema
+### Set Environment Variables
+```bash
+gcloud run services update dans-client-portal \
+  --set-env-vars "GOOGLE_SHEETS_CLIENT_EMAIL=..." \
+  --set-env-vars "CLOUDINARY_CLOUD_NAME=..." \
+  --region us-central1
+```
 
-### Fluxo de Autenticação
-1. Cliente acessa portal
-2. Insere RO Number + Email
-3. Sistema valida no Google Sheets
-4. Redireciona para dashboard
+## API Routes
 
-### Fluxo de Dados
-1. **Google Sheets**: Armazena dados básicos dos veículos e mensagens
-2. **Monday.com**: Gerencia workflow e status em tempo real
-3. **Dashboard**: Combina dados de ambas as fontes
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/auth/verify` | POST | Verify login credentials |
+| `/api/vehicle/[roNumber]` | GET | Get vehicle info |
+| `/api/status/[roNumber]` | GET | Get vehicle status |
+| `/api/admin/auth` | POST | Admin login |
+| `/api/admin/vehicles` | GET | List active vehicles |
+| `/api/admin/upload-photo` | POST | Upload vehicle photo |
+| `/api/admin/cleanup-photos` | GET/DELETE | Photo cleanup |
 
-### APIs Disponíveis
-- `POST /api/auth/verify` - Verificação de login
-- `GET /api/vehicle/[roNumber]` - Dados do veículo
-- `GET /api/status/[roNumber]` - Status atual
-- `POST /api/messages/send` - Envio de mensagens
+## License
 
-## 🔒 Segurança
-
-- ✅ Autenticação obrigatória
-- ✅ Variáveis de ambiente (nunca commitar .env)
-- ✅ API tokens protegidos
-- ✅ HTTPS em produção
-
-## 📞 Suporte
-
-Para dúvidas sobre o portal, entre em contato com o desenvolvedor.
+Private - Dan's Auto Body

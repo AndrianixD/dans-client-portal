@@ -63,15 +63,48 @@ export async function uploadImage(
 }
 
 /**
- * Deletar imagem do Cloudinary (opcional)
- * @param publicId - Public ID da imagem no Cloudinary
+ * Deletar imagem do Cloudinary
+ * @param publicId - Public ID da imagem no Cloudinary (ex: "dans-auto-body/vehicles/RO-4355")
  */
 export async function deleteImage(publicId: string): Promise<void> {
   try {
-    await cloudinary.uploader.destroy(publicId);
+    const result = await cloudinary.uploader.destroy(publicId);
+    if (result.result === 'not found') {
+      console.log(`Image ${publicId} not found in Cloudinary (may have been already deleted)`);
+    } else {
+      console.log(`Successfully deleted image: ${publicId}`);
+    }
   } catch (error) {
     console.error('Error deleting image from Cloudinary:', error);
     throw new Error('Failed to delete image');
+  }
+}
+
+/**
+ * Extrai o public_id de uma URL do Cloudinary
+ * @param url - URL completa do Cloudinary (ex: "https://res.cloudinary.com/.../dans-auto-body/vehicles/RO-4355.jpg")
+ * @returns public_id (ex: "dans-auto-body/vehicles/RO-4355")
+ */
+export function extractPublicIdFromUrl(url: string): string | null {
+  try {
+    // Formato da URL: https://res.cloudinary.com/{cloud_name}/image/upload/{version}/{public_id}.{format}
+    // Exemplo: https://res.cloudinary.com/dqsgscpfx/image/upload/v1234567890/dans-auto-body/vehicles/RO-4355.jpg
+    
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)\.(jpg|jpeg|png|webp|gif)$/i);
+    if (match && match[1]) {
+      return match[1]; // Retorna "dans-auto-body/vehicles/RO-4355"
+    }
+    
+    // Tentar formato alternativo sem versão
+    const altMatch = url.match(/\/upload\/(.+?)\.(jpg|jpeg|png|webp|gif)$/i);
+    if (altMatch && altMatch[1]) {
+      return altMatch[1];
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error extracting public_id from URL:', error);
+    return null;
   }
 }
 
