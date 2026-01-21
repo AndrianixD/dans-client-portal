@@ -17,9 +17,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Verificar se é um login demo
-      const isDemoLogin = roNumber.toUpperCase().startsWith('DEMO');
-
       const response = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: {
@@ -28,7 +25,6 @@ export default function LoginPage() {
         body: JSON.stringify({
           roNumber: roNumber.trim(),
           password: password.trim(),
-          demo: isDemoLogin,
         }),
       });
 
@@ -46,7 +42,6 @@ export default function LoginPage() {
         password: password.trim(), // Guardar password para requests futuros
         clientName: data.vehicleData.clientName,
         loginTime: new Date().toISOString(),
-        demo: data.demo || false,
       }));
 
       // Redirecionar para dashboard
@@ -108,13 +103,13 @@ export default function LoginPage() {
                 type="text"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password (Monday Item ID)"
+                placeholder="Enter with your code"
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition text-gray-900 text-base"
                 required
                 disabled={loading}
               />
               <p className="mt-2 text-xs text-gray-500">
-                Your password is the Monday Item ID provided by our team
+                Your password is the code provided by our team
               </p>
             </div>
 
@@ -144,62 +139,15 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 mb-4">
-              <p className="text-sm font-bold text-blue-900 mb-2 flex items-center">
-                <span className="mr-2">🎨</span> Demo Mode
-              </p>
-              <p className="text-xs text-blue-700 mb-3">Try different repair stages:</p>
-              <div className="space-y-2 text-xs text-blue-700">
-                <div className="bg-white rounded-lg px-3 py-2 border border-blue-100 shadow-sm hover:shadow-md transition">
-                  <p className="font-semibold text-gray-800">Vehicle Received</p>
-                  <p className="font-mono text-[10px] text-gray-600">DEMO001 / demo123</p>
-                </div>
-                <div className="bg-white rounded-lg px-3 py-2 border border-blue-100 shadow-sm hover:shadow-md transition">
-                  <p className="font-semibold text-gray-800">Work in Progress</p>
-                  <p className="font-mono text-[10px] text-gray-600">DEMO002 / demo456</p>
-                </div>
-                <div className="bg-white rounded-lg px-3 py-2 border border-blue-100 shadow-sm hover:shadow-md transition">
-                  <p className="font-semibold text-gray-800">Ready for Pickup</p>
-                  <p className="font-mono text-[10px] text-gray-600">DEMO003 / demo789</p>
-                </div>
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-blue-800 font-semibold hover:text-blue-900 py-2 px-3 bg-white rounded-lg hover:bg-blue-50 transition">
-                    View More Credentials (+5) →
-                  </summary>
-                  <div className="mt-2 space-y-2">
-                    <div className="bg-white rounded-lg px-3 py-2 border border-blue-100 shadow-sm">
-                      <p className="font-semibold text-gray-800">Awaiting Approval</p>
-                      <p className="font-mono text-[10px] text-gray-600">DEMO004 / demo101</p>
-                    </div>
-                    <div className="bg-white rounded-lg px-3 py-2 border border-blue-100 shadow-sm">
-                      <p className="font-semibold text-gray-800">Awaiting Parts</p>
-                      <p className="font-mono text-[10px] text-gray-600">DEMO005 / demo202</p>
-                    </div>
-                    <div className="bg-white rounded-lg px-3 py-2 border border-blue-100 shadow-sm">
-                      <p className="font-semibold text-gray-800">Paint in Progress</p>
-                      <p className="font-mono text-[10px] text-gray-600">DEMO006 / demo303</p>
-                    </div>
-                    <div className="bg-white rounded-lg px-3 py-2 border border-blue-100 shadow-sm">
-                      <p className="font-semibold text-gray-800">Quality Control</p>
-                      <p className="font-mono text-[10px] text-gray-600">DEMO007 / demo404</p>
-                    </div>
-                    <div className="bg-white rounded-lg px-3 py-2 border border-blue-100 shadow-sm">
-                      <p className="font-semibold text-gray-800">Disassembly</p>
-                      <p className="font-mono text-[10px] text-gray-600">DEMO008 / demo505</p>
-                    </div>
-                  </div>
-                </details>
-              </div>
-            </div>
             <p className="text-sm text-gray-600 text-center font-medium">
               Need help accessing your account?
             </p>
             <p className="text-sm text-center mt-2">
-              <a href="tel:(978)587-3341" className="text-red-600 hover:text-red-700 font-semibold transition">
+              <a href="tel:(978)587-3341" className="text-black hover:text-gray-800 font-semibold transition">
                 (978) 587-3341
               </a>
-              {' or '}
-              <a href="mailto:info@dansautobodyma.com" className="text-red-600 hover:text-red-700 font-semibold transition">
+              <span className="text-black"> or </span>
+              <a href="mailto:info@dansautobodyma.com" className="text-black hover:text-gray-800 font-semibold transition">
                 info@dansautobodyma.com
               </a>
             </p>

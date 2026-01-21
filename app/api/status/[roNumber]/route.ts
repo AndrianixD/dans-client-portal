@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVehicleByROAndPassword, getMessageForStatus } from '@/lib/google-sheets';
-import { getMockStatus } from '@/lib/mock-data';
 
 export async function GET(
   request: NextRequest,
@@ -9,19 +8,6 @@ export async function GET(
   try {
     const { roNumber } = await params;
     const password = request.nextUrl.searchParams.get('password');
-    const demo = request.nextUrl.searchParams.get('demo') === 'true';
-
-    if (demo) {
-      // Modo DEMO - usar dados mock
-      const mockStatus = getMockStatus(roNumber);
-      
-      return NextResponse.json({
-        currentStage: mockStatus.currentStage,
-        message: mockStatus.message,
-        description: mockStatus.description,
-        lastUpdated: mockStatus.lastUpdated,
-      });
-    }
 
     if (!password) {
       return NextResponse.json(

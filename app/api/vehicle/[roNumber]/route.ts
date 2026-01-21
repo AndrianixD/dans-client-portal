@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getVehicleByROAndPassword } from '@/lib/google-sheets';
-import { getMockVehicle } from '@/lib/mock-data';
 
 export async function GET(
   request: NextRequest,
@@ -16,9 +15,8 @@ export async function GET(
   try {
     const { roNumber } = await params;
 
-    // Obter password e modo demo dos query params
+    // Obter password dos query params
     const password = request.nextUrl.searchParams.get('password');
-    const demo = request.nextUrl.searchParams.get('demo') === 'true';
 
     if (!password) {
       return NextResponse.json(
@@ -27,15 +25,8 @@ export async function GET(
       );
     }
 
-    let vehicle;
-
-    // Modo DEMO - usar dados mock
-    if (demo) {
-      vehicle = getMockVehicle(roNumber, password);
-    } else {
-      // Modo REAL - usar Google Sheets
-      vehicle = await getVehicleByROAndPassword(roNumber, password);
-    }
+    // Modo REAL - usar Google Sheets
+    const vehicle = await getVehicleByROAndPassword(roNumber, password);
 
     if (!vehicle) {
       return NextResponse.json(

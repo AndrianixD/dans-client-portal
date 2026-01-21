@@ -43,6 +43,7 @@ export interface VehicleData {
   phone?: string;
   email?: string;
   updates?: string; // Status atual
+  origin?: string;
 }
 
 /**
@@ -161,6 +162,7 @@ export async function getVehicleByROAndPassword(
     const roIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'ro');
     const mondayItemIdIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'monday_item_id');
     const updatesIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'updates');
+    const originIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'origin');
 
     if (roIndex === -1 || mondayItemIdIndex === -1) {
       throw new Error('Required columns (RO or Monday_Item_ID) not found in allvehiclesmonday');
@@ -188,6 +190,7 @@ export async function getVehicleByROAndPassword(
       roNumber: roNumber.trim(),
       mondayItemId: vehicleRow[mondayItemIdIndex] || '',
       updates: vehicleRow[updatesIndex] || '',
+      origin: originIndex !== -1 ? (vehicleRow[originIndex] || '') : '',
       // Dados do cliente (da aba customer-info)
       clientName: customerInfo?.clientName || '',
       insurance: customerInfo?.insurance || '',

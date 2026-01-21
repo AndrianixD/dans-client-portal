@@ -7,12 +7,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getVehicleByROAndPassword } from '@/lib/google-sheets';
-import { getMockVehicle } from '@/lib/mock-data';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { roNumber, password, demo } = body;
+    const { roNumber, password } = body;
 
     // Validação de entrada
     if (!roNumber || !password) {
@@ -22,35 +21,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let vehicle;
+    // Modo REAL - usar Google Sheets com RO + Monday_Item_ID
+    const vehicle = await getVehicleByROAndPassword(roNumber, password);
 
-    // Modo DEMO - usar dados mock (mantém compatibilidade)
-    if (demo === true) {
-      // Para demo, usar email como password temporariamente
-      vehicle = getMockVehicle(roNumber, password);
-      
-      if (!vehicle) {
-        return NextResponse.json(
-          { error: 'Use DEMO001/demo@cliente.com, DEMO002/maria@cliente.com or DEMO003/pedro@cliente.com' },
-          { status: 401 }
-        );
-      }
-    } else {
-      // Modo REAL - usar Google Sheets com RO + Monday_Item_ID
-      vehicle = await getVehicleByROAndPassword(roNumber, password);
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: 'Invalid RO Number or Password' },
+        { status: 401 }
+      );
+    }
 
-      if (!vehicle) {
-        return NextResponse.json(
-          { error: 'Invalid RO Number or Password' },
-          { status: 401 }
-        );
-      }
+    if (vehicle.origin?.toString().trim().toLowerCase() === 'delivered') {
+      return NextResponse.json(
+        { error: 'Access closed: the repair has been completed.' },
+        { status: 403 }
+      );
     }
 
     // Retornar dados do veículo (sem informações sensíveis)
     return NextResponse.json({
       success: true,
-      demo: demo === true,
       vehicleData: {
         roNumber: vehicle.roNumber,
         clientName: vehicle.clientName,
