@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { LogOut, Car, Shield, FileText, Hash, Mail, MessageCircle, Phone } from 'lucide-react';
+import { LogOut, Car, Shield, FileText, Hash, Mail, MessageCircle, Phone, Calendar } from 'lucide-react';
 
 interface VehicleData {
   vin?: string;
@@ -15,6 +15,8 @@ interface VehicleData {
   vehicle?: string;
   insurance?: string;
   claim?: string;
+  photoUrl?: string;
+  photoDate?: string;
 }
 
 interface StatusData {
@@ -197,16 +199,44 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Vehicle Photos Placeholder */}
+            {/* Vehicle Photos */}
             <div className="bg-[#242938] rounded-xl p-6">
-              <div className="mb-3">
+              <div className="mb-4">
                 <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Vehicle Photos</span>
               </div>
-              <div className="border border-dashed border-gray-600/70 rounded-lg p-8 text-center">
-                <p className="text-gray-400 text-sm">
-                  Photos will appear here as your vehicle progresses through each stage.
-                </p>
-              </div>
+              {vehicleData?.photoUrl ? (
+                <div>
+                  <div className="relative aspect-video bg-[#1a1f2e] rounded-lg overflow-hidden mb-3">
+                    <Image
+                      src={vehicleData.photoUrl}
+                      alt={`Vehicle RO ${vehicleData.roNumber}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 66vw"
+                    />
+                  </div>
+                  {vehicleData.photoDate && (
+                    <div className="flex items-center gap-2 text-gray-400 text-sm">
+                      <Calendar className="w-4 h-4" />
+                      <span>
+                        Photo taken: {new Date(vehicleData.photoDate).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="border border-dashed border-gray-600/70 rounded-lg p-8 text-center">
+                  <p className="text-gray-400 text-sm">
+                    Photos will appear here as your vehicle progresses through each stage.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

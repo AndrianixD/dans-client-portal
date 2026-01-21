@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 export default function LoginPage() {
-  const [roNumber, setRoNumber] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          roNumber: roNumber.trim(),
+          username: username.trim(),
           password: password.trim(),
         }),
       });
@@ -36,16 +36,24 @@ export default function LoginPage() {
         return;
       }
 
-      // Salvar dados na sessão (usando localStorage temporariamente)
-      localStorage.setItem('clientSession', JSON.stringify({
-        roNumber: data.vehicleData.roNumber,
-        password: password.trim(), // Guardar password para requests futuros
-        clientName: data.vehicleData.clientName,
-        loginTime: new Date().toISOString(),
-      }));
-
-      // Redirecionar para dashboard
-      router.push('/dashboard');
+      // Verificar se é admin ou cliente
+      if (data.isAdmin) {
+        // Salvar sessão admin
+        localStorage.setItem('adminSession', JSON.stringify({
+          username: username.trim(),
+          loginTime: new Date().toISOString(),
+        }));
+        router.push('/admin/dashboard');
+      } else {
+        // Salvar dados na sessão do cliente
+        localStorage.setItem('clientSession', JSON.stringify({
+          roNumber: data.vehicleData.roNumber,
+          password: password.trim(), // Guardar password para requests futuros
+          clientName: data.vehicleData.clientName,
+          loginTime: new Date().toISOString(),
+        }));
+        router.push('/dashboard');
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError('Unable to connect to server');
@@ -69,9 +77,9 @@ export default function LoginPage() {
             />
           </div>
           <div className="w-16 h-1 bg-red-600 mx-auto mb-4"></div>
-          <h2 className="text-2xl font-semibold text-white">CLIENT PORTAL</h2>
+          <h2 className="text-2xl font-semibold text-white">PORTAL</h2>
           <p className="text-gray-400 mt-2">
-            Access your vehicle repair status
+            Access your vehicle repair status or admin dashboard
           </p>
         </div>
 
@@ -79,15 +87,15 @@ export default function LoginPage() {
         <div className="bg-white rounded-lg shadow-2xl p-8">
           <form onSubmit={handleSubmit}>
             <div className="mb-6">
-              <label htmlFor="roNumber" className="block text-sm font-semibold text-gray-700 mb-2">
-                RO Number *
+              <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
+                Username / RO Number *
               </label>
               <input
-                id="roNumber"
+                id="username"
                 type="text"
-                value={roNumber}
-                onChange={(e) => setRoNumber(e.target.value)}
-                placeholder="Enter your RO number"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your RO number or admin username"
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition text-gray-900 text-base"
                 required
                 disabled={loading}
@@ -100,16 +108,17 @@ export default function LoginPage() {
               </label>
               <input
                 id="password"
-                type="text"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter with your code"
+                placeholder="Enter your password"
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition text-gray-900 text-base"
                 required
                 disabled={loading}
               />
               <p className="mt-2 text-xs text-gray-500">
-                Your password is the code provided by our team
+                For clients: Use your RO number and code provided by our team<br />
+                For admins: Use your admin credentials
               </p>
             </div>
 

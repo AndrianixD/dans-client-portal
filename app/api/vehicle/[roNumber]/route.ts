@@ -49,6 +49,9 @@ export async function GET(
       vehicle: vehicle.vehicle,
       insurance: vehicle.insurance,
       claim: vehicle.claim,
+      // Campos de foto
+      photoUrl: vehicle.photoUrl,
+      photoDate: vehicle.photoDate,
     });
   } catch (error) {
     console.error('Error fetching vehicle:', error);

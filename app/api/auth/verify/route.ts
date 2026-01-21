@@ -8,25 +8,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVehicleByROAndPassword } from '@/lib/google-sheets';
 
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'dansauto2026';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Rocket2025!';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { roNumber, password } = body;
+    const { username, password } = body;
 
     // Validação de entrada
-    if (!roNumber || !password) {
+    if (!username || !password) {
       return NextResponse.json(
-        { error: 'RO Number and Password are required' },
+        { error: 'Username and Password are required' },
         { status: 400 }
       );
     }
 
-    // Modo REAL - usar Google Sheets com RO + Monday_Item_ID
-    const vehicle = await getVehicleByROAndPassword(roNumber, password);
+    // Verificar se é login admin primeiro
+    if (username.trim() === ADMIN_USERNAME && password.trim() === ADMIN_PASSWORD) {
+      return NextResponse.json({
+        success: true,
+        isAdmin: true,
+        message: 'Admin authentication successful',
+      });
+    }
+
+    // Se não for admin, tratar como login de cliente (RO Number + Password)
+    const vehicle = await getVehicleByROAndPassword(username.trim(), password.trim());
 
     if (!vehicle) {
       return NextResponse.json(
-        { error: 'Invalid RO Number or Password' },
+        { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
@@ -41,6 +53,7 @@ export async function POST(request: NextRequest) {
     // Retornar dados do veículo (sem informações sensíveis)
     return NextResponse.json({
       success: true,
+      isAdmin: false,
       vehicleData: {
         roNumber: vehicle.roNumber,
         clientName: vehicle.clientName,

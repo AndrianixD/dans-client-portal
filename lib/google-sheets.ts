@@ -12,7 +12,7 @@ const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
 /**
- * Cliente autenticado do Google Sheets
+ * Cliente autenticado do Google Sheets (readonly)
  */
 function getAuthClient() {
   if (!SERVICE_ACCOUNT_EMAIL || !PRIVATE_KEY) {
@@ -23,6 +23,21 @@ function getAuthClient() {
     email: SERVICE_ACCOUNT_EMAIL,
     key: PRIVATE_KEY,
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+  });
+}
+
+/**
+ * Cliente autenticado do Google Sheets (readwrite)
+ */
+function getAuthClientWrite() {
+  if (!SERVICE_ACCOUNT_EMAIL || !PRIVATE_KEY) {
+    throw new Error('Google Sheets credentials not configured');
+  }
+
+  return new google.auth.JWT({
+    email: SERVICE_ACCOUNT_EMAIL,
+    key: PRIVATE_KEY,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
 }
 
@@ -44,6 +59,8 @@ export interface VehicleData {
   email?: string;
   updates?: string; // Status atual
   origin?: string;
+  photoUrl?: string; // URL da foto no Cloudinary
+  photoDate?: string; // Data/hora ISO da foto
 }
 
 /**
@@ -145,9 +162,10 @@ export async function getVehicleByROAndPassword(
     const sheets = google.sheets({ version: 'v4', auth });
 
     // 1. Buscar dados de autenticação na aba "allvehiclesmonday"
+    // Usar range maior para capturar colunas photo_url e photo_date que podem estar além de Z
     const authResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEETS_ID,
-      range: 'allvehiclesmonday!A:Z',
+      range: 'allvehiclesmonday!A:AA', // Estendido para AA para capturar colunas adicionais
     });
 
     const authRows = authResponse.data.values;
@@ -163,6 +181,21 @@ export async function getVehicleByROAndPassword(
     const mondayItemIdIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'monday_item_id');
     const updatesIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'updates');
     const originIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'origin');
+    
+    // Buscar colunas de foto (pode ter variações no nome)
+    const photoUrlIndex = authHeaders.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_url' || header === 'photourl' || header === 'photo url';
+    });
+    const photoDateIndex = authHeaders.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_date' || header === 'photodate' || header === 'photo date';
+    });
+
+    // Debug: log dos headers encontrados
+    if (photoUrlIndex === -1 || photoDateIndex === -1) {
+      console.log('Photo columns not found. Available headers:', authHeaders);
+    }
 
     if (roIndex === -1 || mondayItemIdIndex === -1) {
       throw new Error('Required columns (RO or Monday_Item_ID) not found in allvehiclesmonday');
@@ -191,6 +224,8 @@ export async function getVehicleByROAndPassword(
       mondayItemId: vehicleRow[mondayItemIdIndex] || '',
       updates: vehicleRow[updatesIndex] || '',
       origin: originIndex !== -1 ? (vehicleRow[originIndex] || '') : '',
+      photoUrl: photoUrlIndex !== -1 ? (vehicleRow[photoUrlIndex] || '') : '',
+      photoDate: photoDateIndex !== -1 ? (vehicleRow[photoDateIndex] || '') : '',
       // Dados do cliente (da aba customer-info)
       clientName: customerInfo?.clientName || '',
       insurance: customerInfo?.insurance || '',
@@ -272,6 +307,226 @@ export async function getMessageForStatus(
     };
   } catch (error) {
     console.error('Error fetching message from Google Sheets:', error);
+    throw error;
+  }
+}
+
+/**
+ * Busca todos os veículos ativos (onde origin != "delivered")
+ * Usado no admin dashboard
+ */
+export async function getAllActiveVehicles(): Promise<VehicleData[]> {
+  try {
+    if (!SHEETS_ID) {
+      throw new Error('GOOGLE_SHEETS_ID not configured');
+    }
+
+    const auth = getAuthClient();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Buscar dados da aba "allvehiclesmonday"
+    // Usar range maior para capturar colunas photo_url e photo_date
+    const authResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEETS_ID,
+      range: 'allvehiclesmonday!A:AA', // Estendido para AA
+    });
+
+    const authRows = authResponse.data.values;
+    if (!authRows || authRows.length <= 1) {
+      return [];
+    }
+
+    const authHeaders = authRows[0];
+    const authDataRows = authRows.slice(1);
+
+    // Encontrar índices das colunas
+    const roIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'ro');
+    const updatesIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'updates');
+    const originIndex = authHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'origin');
+    // Buscar colunas de foto (pode ter variações no nome)
+    const photoUrlIndex = authHeaders.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_url' || header === 'photourl' || header === 'photo url';
+    });
+    const photoDateIndex = authHeaders.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_date' || header === 'photodate' || header === 'photo date';
+    });
+
+    if (roIndex === -1) {
+      throw new Error('Column RO not found in allvehiclesmonday');
+    }
+
+    const activeVehicles: VehicleData[] = [];
+
+    // Filtrar veículos onde origin != "delivered"
+    for (const row of authDataRows) {
+      const origin = originIndex !== -1 ? (row[originIndex] || '').toString().trim().toLowerCase() : '';
+      
+      if (origin !== 'delivered' && row[roIndex]) {
+        const roNumber = row[roIndex].toString().trim();
+        
+        // Buscar informações do cliente
+        const customerInfo = await getCustomerInfoByRO(roNumber);
+        
+        activeVehicles.push({
+          roNumber,
+          mondayItemId: '', // Não necessário para admin
+          updates: updatesIndex !== -1 ? (row[updatesIndex] || '') : '',
+          origin: origin || '',
+          photoUrl: photoUrlIndex !== -1 ? (row[photoUrlIndex] || '') : '',
+          photoDate: photoDateIndex !== -1 ? (row[photoDateIndex] || '') : '',
+          clientName: customerInfo?.clientName || '',
+          insurance: customerInfo?.insurance || '',
+          claim: customerInfo?.claim || '',
+          vehicle: customerInfo?.vehicle || '',
+          vin: customerInfo?.vin || '',
+          phone: customerInfo?.phone || '',
+          email: customerInfo?.email || '',
+        });
+      }
+    }
+
+    return activeVehicles;
+  } catch (error) {
+    console.error('Error fetching active vehicles:', error);
+    throw error;
+  }
+}
+
+/**
+ * Atualiza a foto de um veículo no Google Sheets
+ * Adiciona/atualiza as colunas photo_url e photo_date
+ */
+export async function updateVehiclePhoto(
+  roNumber: string,
+  photoUrl: string,
+  photoDate: string
+): Promise<void> {
+  try {
+    if (!SHEETS_ID) {
+      throw new Error('GOOGLE_SHEETS_ID not configured');
+    }
+
+    const auth = getAuthClientWrite();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Buscar dados da aba "allvehiclesmonday" para encontrar a linha
+    // Usar range maior para capturar colunas photo_url e photo_date
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEETS_ID,
+      range: 'allvehiclesmonday!A:AA', // Estendido para AA
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      throw new Error('No data found in allvehiclesmonday');
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    // Encontrar índices das colunas
+    const roIndex = headers.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'ro');
+    
+    // Buscar colunas de foto (pode ter variações no nome)
+    const photoUrlIndex = headers.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_url' || header === 'photourl' || header === 'photo url';
+    });
+    const photoDateIndex = headers.findIndex((h: string) => {
+      const header = h?.toString().trim().toLowerCase();
+      return header === 'photo_date' || header === 'photodate' || header === 'photo date';
+    });
+
+    if (roIndex === -1) {
+      throw new Error('Column RO not found');
+    }
+
+    // Encontrar a linha do veículo
+    const vehicleRowIndex = dataRows.findIndex((row) => {
+      const rowRO = row[roIndex]?.toString().trim();
+      return rowRO === roNumber.trim();
+    });
+
+    if (vehicleRowIndex === -1) {
+      throw new Error(`Vehicle with RO ${roNumber} not found`);
+    }
+
+    // A linha real no sheet é vehicleRowIndex + 2 (header + 1-indexed)
+    const sheetRowIndex = vehicleRowIndex + 2;
+
+    // Se as colunas não existem, precisamos adicioná-las primeiro
+    if (photoUrlIndex === -1 || photoDateIndex === -1) {
+      // Adicionar colunas se não existirem
+      const lastColumn = String.fromCharCode(65 + headers.length - 1); // Última coluna
+      const nextColumn1 = String.fromCharCode(65 + headers.length); // Próxima coluna
+      const nextColumn2 = String.fromCharCode(66 + headers.length); // Próxima coluna + 1
+
+      // Adicionar headers
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEETS_ID,
+        range: `allvehiclesmonday!${nextColumn1}1:${nextColumn2}1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [['photo_url', 'photo_date']],
+        },
+      });
+
+      // Buscar novamente para obter os novos índices
+      const newResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SHEETS_ID,
+        range: 'allvehiclesmonday!A:AA', // Estendido para AA
+      });
+
+      const newHeaders = newResponse.data.values?.[0] || [];
+      const newPhotoUrlIndex = newHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'photo_url');
+      const newPhotoDateIndex = newHeaders.findIndex((h: string) => h?.toString().trim().toLowerCase() === 'photo_date');
+
+      // Atualizar valores
+      const photoUrlCol = String.fromCharCode(65 + newPhotoUrlIndex);
+      const photoDateCol = String.fromCharCode(65 + newPhotoDateIndex);
+
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SHEETS_ID,
+        requestBody: {
+          valueInputOption: 'RAW',
+          data: [
+            {
+              range: `allvehiclesmonday!${photoUrlCol}${sheetRowIndex}`,
+              values: [[photoUrl]],
+            },
+            {
+              range: `allvehiclesmonday!${photoDateCol}${sheetRowIndex}`,
+              values: [[photoDate]],
+            },
+          ],
+        },
+      });
+    } else {
+      // Colunas já existem, apenas atualizar valores
+      const photoUrlCol = String.fromCharCode(65 + photoUrlIndex);
+      const photoDateCol = String.fromCharCode(65 + photoDateIndex);
+
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SHEETS_ID,
+        requestBody: {
+          valueInputOption: 'RAW',
+          data: [
+            {
+              range: `allvehiclesmonday!${photoUrlCol}${sheetRowIndex}`,
+              values: [[photoUrl]],
+            },
+            {
+              range: `allvehiclesmonday!${photoDateCol}${sheetRowIndex}`,
+              values: [[photoDate]],
+            },
+          ],
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Error updating vehicle photo:', error);
     throw error;
   }
 }
