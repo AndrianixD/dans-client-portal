@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { LogOut, Upload, Camera, Calendar, X, CheckCircle, Loader, Search } from 'lucide-react';
+import { LogOut, Upload, Camera, Calendar, X, CheckCircle, Loader, Search, RefreshCw } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 
 interface Vehicle {
@@ -30,6 +30,8 @@ export default function AdminDashboardPage() {
   const [photoQueue, setPhotoQueue] = useState<QueuedPhoto[]>([]);
   const [isUploadingAll, setIsUploadingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const router = useRouter();
 
   // Filtrar e ordenar veículos (maior RO para menor)
@@ -76,9 +78,13 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
-  const loadVehicles = async () => {
+  const loadVehicles = async (showRefreshIndicator = false) => {
     try {
-      setLoading(true);
+      if (showRefreshIndicator) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError('');
 
       const adminSession = localStorage.getItem('adminSession');
@@ -103,12 +109,30 @@ export default function AdminDashboardPage() {
 
       const data = await response.json();
       setVehicles(data.vehicles || []);
+      setLastRefresh(new Date());
     } catch (err: any) {
       console.error('Error loading vehicles:', err);
       setError(err.message || 'Error loading vehicles');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadVehicles(true);
+  };
+
+  const formatLastRefresh = () => {
+    if (!lastRefresh) return '';
+    const now = new Date();
+    const diffMs = now.getTime() - lastRefresh.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    
+    if (diffSecs < 60) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    return lastRefresh.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const handleFileSelect = async (roNumber: string, file: File | null) => {
@@ -333,12 +357,31 @@ export default function AdminDashboardPage() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-2">Active Vehicles</h2>
-              <p className="text-gray-400">
-                {filteredAndSortedVehicles.length} of {vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''} in shop
-                {searchQuery && ` (filtered)`}
-              </p>
+            <div className="flex items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">Active Vehicles</h2>
+                <p className="text-gray-400">
+                  {filteredAndSortedVehicles.length} of {vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''} in shop
+                  {searchQuery && ` (filtered)`}
+                </p>
+              </div>
+              
+              {/* Refresh Button */}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-4 py-2 bg-[#242938] hover:bg-[#2d3548] border border-gray-700 text-white rounded-lg transition font-medium disabled:opacity-50"
+                title="Refresh vehicle list"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+              
+              {lastRefresh && (
+                <span className="text-gray-500 text-xs hidden md:block">
+                  Updated {formatLastRefresh()}
+                </span>
+              )}
             </div>
             
             {/* Search Box */}
