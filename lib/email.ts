@@ -6,7 +6,19 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization para evitar erro durante o build
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resendClient) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY não configurada');
+    }
+    resendClient = new Resend(apiKey);
+  }
+  return resendClient;
+}
 
 export interface SendEmailParams {
   to: string;
@@ -21,6 +33,7 @@ export interface SendEmailParams {
 export async function sendEmail({ to, subject, html, from }: SendEmailParams) {
   try {
     const fromEmail = from || process.env.EMAIL_FROM || 'portal@dansautobodyma.com';
+    const resend = getResendClient();
 
     const data = await resend.emails.send({
       from: fromEmail,

@@ -1,114 +1,36 @@
-# Dan's Auto Body - Client Portal
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Portal de acompanhamento de reparos para clientes da Dan's Auto Body.
+## Getting Started
 
-## Features
-
-- **Client Portal**: Clientes acompanham status do reparo via RO Number + Password
-- **Admin Portal**: Equipe faz upload de fotos diárias dos veículos
-- **Auto Photo Cleanup**: Fotos antigas são automaticamente removidas
-
-## Tech Stack
-
-- **Framework**: Next.js 15 (App Router)
-- **Styling**: Tailwind CSS
-- **Database**: Google Sheets
-- **Image Storage**: Cloudinary
-- **Deployment**: Google Cloud Run
-
-## Environment Variables
-
-```env
-# Google Sheets
-GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-GOOGLE_SHEETS_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
-GOOGLE_SHEETS_SPREADSHEET_ID=your-spreadsheet-id
-
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-
-# Admin
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your-secure-password
-
-# Cron (for photo cleanup)
-CRON_SECRET=your-cron-secret
-```
-
-## Local Development
+First, run the development server:
 
 ```bash
-# Install dependencies
-npm install
-
-# Run development server
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Google Sheets Structure
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-### Tab: `allvehiclesmonday`
-| Column | Description |
-|--------|-------------|
-| RO | RO Number |
-| monday_item_id | Password for login |
-| updates | Current status |
-| photo_url | Vehicle photo URL |
-| photo_date | Photo date |
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### Tab: `customer-info`
-| Column | Description |
-|--------|-------------|
-| RO | RO Number |
-| Name | Client name |
-| Insurance | Insurance company |
-| Claim | Claim number |
-| Vehicle | Vehicle description |
+## Learn More
 
-### Tab: `updatelist`
-| Column | Description |
-|--------|-------------|
-| updates | Status name |
-| message | Message for status |
+To learn more about Next.js, take a look at the following resources:
 
-## Deployment (Google Cloud)
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-### Build & Deploy
-```bash
-# Build with Cloud Build
-gcloud builds submit --config cloudbuild.yaml
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-# Or deploy directly
-gcloud run deploy dans-client-portal \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated
-```
+## Deploy on Vercel
 
-### Set Environment Variables
-```bash
-gcloud run services update dans-client-portal \
-  --set-env-vars "GOOGLE_SHEETS_CLIENT_EMAIL=..." \
-  --set-env-vars "CLOUDINARY_CLOUD_NAME=..." \
-  --region us-central1
-```
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## API Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/auth/verify` | POST | Verify login credentials |
-| `/api/vehicle/[roNumber]` | GET | Get vehicle info |
-| `/api/status/[roNumber]` | GET | Get vehicle status |
-| `/api/admin/auth` | POST | Admin login |
-| `/api/admin/vehicles` | GET | List active vehicles |
-| `/api/admin/upload-photo` | POST | Upload vehicle photo |
-| `/api/admin/cleanup-photos` | GET/DELETE | Photo cleanup |
-
-## License
-
-Private - Dan's Auto Body
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

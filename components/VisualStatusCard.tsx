@@ -1,7 +1,7 @@
 'use client';
 
 import { Clock } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface VisualStatusCardProps {
   currentStage: string;
@@ -10,7 +10,7 @@ interface VisualStatusCardProps {
 }
 
 // Ilustrações SVG para cada status
-const StatusIllustrations: { [key: string]: JSX.Element } = {
+const StatusIllustrations: { [key: string]: React.ReactElement } = {
   'vehicle received': (
     <svg viewBox="0 0 120 80" className="w-full h-full">
       {/* Garage/Building */}
@@ -223,7 +223,7 @@ const StatusIllustrations: { [key: string]: JSX.Element } = {
 };
 
 // Função para obter ilustração baseada no status
-function getStatusIllustration(status: string): JSX.Element {
+function getStatusIllustration(status: string): React.ReactElement {
   const normalizedStatus = status.toLowerCase().trim();
   
   // Busca exata ou parcial
