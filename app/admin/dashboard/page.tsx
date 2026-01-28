@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { LogOut, Upload, Camera, Calendar, X, CheckCircle, Loader } from 'lucide-react';
+import { LogOut, Upload, Camera, Calendar, X, CheckCircle, Loader, Search } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 
 interface Vehicle {
@@ -29,7 +29,30 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState('');
   const [photoQueue, setPhotoQueue] = useState<QueuedPhoto[]>([]);
   const [isUploadingAll, setIsUploadingAll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
+
+  // Filtrar e ordenar veículos (maior RO para menor)
+  const filteredAndSortedVehicles = useMemo(() => {
+    let filtered = vehicles;
+    
+    // Filtrar por busca
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = vehicles.filter(v => 
+        v.roNumber.toLowerCase().includes(query) ||
+        v.clientName?.toLowerCase().includes(query) ||
+        v.vehicle?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Ordenar do maior RO para o menor
+    return [...filtered].sort((a, b) => {
+      const roA = parseInt(a.roNumber) || 0;
+      const roB = parseInt(b.roNumber) || 0;
+      return roB - roA; // Maior para menor
+    });
+  }, [vehicles, searchQuery]);
 
   useEffect(() => {
     // Verificar sessão admin
@@ -309,10 +332,35 @@ export default function AdminDashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">Active Vehicles</h2>
-          <p className="text-gray-400">
-            {vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''} in shop
-          </p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">Active Vehicles</h2>
+              <p className="text-gray-400">
+                {filteredAndSortedVehicles.length} of {vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''} in shop
+                {searchQuery && ` (filtered)`}
+              </p>
+            </div>
+            
+            {/* Search Box */}
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by RO, client name, or vehicle..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-[#242938] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -416,7 +464,7 @@ export default function AdminDashboardPage() {
 
         {/* Vehicles Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {vehicles.map((vehicle) => (
+          {filteredAndSortedVehicles.map((vehicle) => (
             <div
               key={vehicle.roNumber}
               className="bg-[#242938] rounded-xl p-6 border border-gray-700/50"
@@ -514,9 +562,22 @@ export default function AdminDashboardPage() {
           ))}
         </div>
 
-        {vehicles.length === 0 && !loading && (
+        {filteredAndSortedVehicles.length === 0 && !loading && (
           <div className="text-center py-12">
-            <p className="text-gray-400">No active vehicles found</p>
+            {searchQuery ? (
+              <div>
+                <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">No vehicles found for "{searchQuery}"</p>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="mt-4 text-red-500 hover:text-red-400 font-medium"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : (
+              <p className="text-gray-400">No active vehicles found</p>
+            )}
           </div>
         )}
       </main>
