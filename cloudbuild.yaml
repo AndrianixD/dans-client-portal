@@ -54,6 +54,6 @@ images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/dans-client-portal/app:latest'
 
 options:
-  logging: CLOUD_LOGGING_ONLY
+  logging: LEGACY
 
 timeout: '1200s'
