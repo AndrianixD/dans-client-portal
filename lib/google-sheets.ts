@@ -359,11 +359,14 @@ export async function getAllActiveVehicles(): Promise<VehicleData[]> {
 
     const activeVehicles: VehicleData[] = [];
 
-    // Filtrar veículos onde origin != "delivered"
+    // Status que devem ser ocultados (não são veículos ativos na oficina)
+    const excludedOrigins = ['delivered', 'leads'];
+
+    // Filtrar veículos onde origin não está na lista de excluídos
     for (const row of authDataRows) {
       const origin = originIndex !== -1 ? (row[originIndex] || '').toString().trim().toLowerCase() : '';
       
-      if (origin !== 'delivered' && row[roIndex]) {
+      if (!excludedOrigins.includes(origin) && row[roIndex]) {
         const roNumber = row[roIndex].toString().trim();
         
         // Buscar informações do cliente
